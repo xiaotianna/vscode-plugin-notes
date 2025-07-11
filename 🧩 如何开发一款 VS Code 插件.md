@@ -241,7 +241,58 @@ export function deactivate() {}
 
 ![](./img/04-运行项目-3.png)
 
-# 三、package.json 的 activationEvents 字段
+# 三、熟悉 VS Code 界面
+
+官方文档：https://code.visualstudio.com/api/ux-guidelines/overview
+
+在深入细节之前，了解 VS Code 的各种架构 UI 部分如何组合在一起，以及你的扩展如何以及在哪里做出贡献是很重要的。
+
+我们需要了解各个界面对应的名称和位置，不然后面的内容您可能不知道说的是哪个位置的更改 😂。
+
+VS Code 界面大致可分为两个主要概念：容器和子项。一般来说，容器可被视为 VS Code 界面中渲染一个或多个项目的较大区域：
+
+- `Containers` 容器
+- `Items` 子项，容器下的具体内容
+
+## 1、Containers 容器
+
+![](./img/16-vscode界面container.png)
+
+- [Activity Bar 活动栏](https://code.visualstudio.com/api/ux-guidelines/activity-bar)
+- [Primary Sidebar 主侧边栏](https://code.visualstudio.com/api/ux-guidelines/sidebars#primary-sidebar)
+- [Secondary Sidebar 次级侧边栏](https://code.visualstudio.com/api/ux-guidelines/sidebars#secondary-sidebar)
+- Editor 编辑器
+- [Panel 面板](https://code.visualstudio.com/api/ux-guidelines/panel)
+- [Status Bar 状态栏](https://code.visualstudio.com/api/ux-guidelines/status-bar)
+
+## 2、Items 子项
+
+![](./img/16-vscode界面items.png)
+
+- [View 视图](https://code.visualstudio.com/api/ux-guidelines/views)：视图可以以树视图(`Tree View`)、欢迎视图(`Welcome View`)或 Webview 视图(`Webview View`)的形式进行贡献
+- View Toolbar 视图工具栏
+- Sidebar Toolbar 侧边栏工具栏
+- Editor Toolbar 编辑器工具栏
+- Panel Toolbar 面板工具栏
+- Status Bar Item 状态栏项
+
+## 3、Common UI Elements 通用 UI 元素
+
+- Command Palette 命令面板
+- Quick Pick 快速选择：和命令面板类似，在同一个位置
+- Notifications 通知：右下角通知
+- Webviews
+
+![](./img/17-Common-UI-Elements-webview.png)
+
+- Context Menus 上下文菜单：与命令面板的固定位置不同，上下文菜单允许用户从特定位置执行操作或进行配置。
+
+![](./img/17-Common-UI-Elements-context-menu.png)
+
+- Walkthroughs 快速入门：快速入门通过一个包含丰富内容的分步检查清单，为用户提供了使用扩展的统一体验。就是 vscode 打开的开始界面。
+- Settings 设置
+
+# 四、package.json 的 activationEvents 字段
 
 官方文档：https://code.visualstudio.com/api/references/activation-events
 
@@ -389,7 +440,7 @@ export function deactivate() {}
 
 原因是：这里只是监听了一个事件（比如 `vscode.workspace.onDidOpenTextDocument`），但没有为该语言提供任何具体贡献，则不会自动激活插件。至于当右键点击"Open Ts File"菜单后激活，是因为触发了`activate` 方法导致的激活，才开启的`onDidOpenTextDocument`监听，自然在这之前是不会显示提示内容。
 
-# 四、package.json 的 contributes（贡献点）字段
+# 五、package.json 的 contributes（贡献点）字段
 
 `contributes` 配置项是整个插件的贡献点，表明这个插件有什么功能
 
@@ -875,8 +926,11 @@ export function activate(context: vscode.ExtensionContext) {
 const statusBarItem = vscode.window.createStatusBarItem(
   vscode.StatusBarAlignment.Left
 )
+// 状态栏文字
 statusBarItem.text = `$(comment) Comment Line`
+// 点击后执行editor.action.addCommentLine（注释该行）
 statusBarItem.command = 'editor.action.addCommentLine'
+// 显示这个状态栏按钮
 statusBarItem.show()
 ```
 
@@ -893,6 +947,14 @@ statusBarItem.show()
     ]
   }
 }
+```
+
+- **通过 markdown 渲染成链接，点击触发**
+
+这个`command:example.helloWorld` 就是命令（`vscode.commands.registerCommand('example.helloWorld)`）
+
+```md
+[命令按钮](command:example.helloWorld)
 ```
 
 ### 2.4 内置命令
@@ -1163,7 +1225,14 @@ statusBarItem.show()
 - `test`: 活动栏中的测试视图容器。
 - [`Custom view containers`](https://code.visualstudio.com/api/references/contribution-points#contributes.viewsContainers) 由插件提供的自定义视图容器。
 
-这里就只测试一种吧
+> views 的自定义视图容器需要 views 的 key 和 viewsContainers 的 ui 容器的 id viewsContainers 部分会说）
+
+视图可以以**树视图**(`Tree View`)、**欢迎视图**(`Welcome View`)或 **Webview 视图**(`Webview View`)的形式进行贡献。
+
+**需要注意**：每个视图都有个 `type` 属性，用于指定视图的类型，默认为 `tree`，可省（但是如果你渲染的类型是 `webview`，则需要设置 `type: webview`，否则渲染不出来，这里已经踩过坑了 😭）。
+
+- `type: "tree"`: 该视图由 `createTreeView` 创建的 `TreeView` 提供支持。
+- `type: "webview`: 该视图由 `registerWebviewViewProvider` 注册的 `WebviewView` 提供支持。
 
 ### 4.1、views.explorer
 
@@ -1236,7 +1305,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 ![](./img/13-contributes.views.png)
 
-⚠️ 这里需要注意，我的 vscode 在 `Node Dependencies Demo` 前没有 icon 图标，也就是配置的`explorer.icon` 没有看到，原因是因为某个设置关掉了，我这里是把 vscode 的开发者工具打开了，发现一个类名为`codicon`的 css 属性设置为了`display: none;`，导致图标被隐藏了，这里手动去掉即可。
+⚠️ 这里需要注意，我的 vscode 在 `Node Dependencies Demo` 前没有 icon 图标，也就是配置的`explorer.icon` 没有看到，原因是因为某个设置关掉了，我这里是把 vscode 的开发者工具打开了，发现一个类名为`codicon` 元素的 css 属性设置为了`display: none;`，导致图标被隐藏了，这里手动去掉即可。
 
 ![](./img/14-contributes.views-icon不生效问题.png)
 
@@ -1250,20 +1319,186 @@ export function activate(context: vscode.ExtensionContext) {
 
 2. 通过 `registerWebviewViewProvider` 注册一个提供者来使用 `WebviewView`。Webview 视图允许在视图中渲染任意 HTML。参考[`webview-view-sample`](https://github.com/microsoft/vscode-extension-samples/tree/main/webview-view-sample)。
 
-拿官方的webview的运行展示一下，等下会详细介绍
+拿官方的 webview 的运行展示一下，等下会详细介绍
 
 ![](./img/15-views.explorer-webview.png)
 
-## 5、contributes.viewsContainers
+## 5、contributes.viewsContainers 自定义视图容器
 
-可以贡献自定义视图的视图容器
+配置**自定义视图的视图容器**。你需要为视图指定唯一标识和标题和图标。目前你只可以配置活动栏(`activitybar`)和面板(`panel`)。
+
+下面的示例展示了如何将 `Package Explorer` 视图容器贡献到 `Activity Bar`，以及如何将视图贡献到其中。
+
+下面拿 `viewsContainers.activitybar` 举例：
+
+1、package.json 文件中添加如下内容：
+
+⚠️ 这里要注意：`viewsContainers` 的可以为 `activitybar`、`panel` 只有这两个，他们是一个数组，可以定义多个视图容器。数组每一项的 `id` 属性，必须和 `views` 中定义的 `key` 值一致（`view` 的 `key` 值有内置的和自定义的值）。
+
+```json
+{
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "custom-package-explorer", // 视图容器的标识符
+          "title": "Custom Package Explorer",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      // 视图，与视图容器关联，与 activitybar 的每一项的id 属性一致
+      "custom-package-explorer": [
+        {
+          "id": "package-dependencies-demo", // 自定义唯一值
+          "name": "Dependencies Demo"
+        },
+        {
+          "id": "package-outline-demo",
+          "name": "Outline Demo"
+        }
+      ]
+    }
+  }
+}
+```
+
+2、extension.ts
+
+这个文件是用来提供 `view` 视图的，也就是展示的内容的，这里的示例代码是创建了两个树视图。
+
+> 视图可以以**树视图**(`Tree View`)、**欢迎视图**(`Welcome View`)或 **Webview 视图**(`Webview View`)的形式进行贡献（上面说过）
+
+```ts
+import * as vscode from 'vscode'
+
+export function activate(context: vscode.ExtensionContext) {
+  // 创建一个 `DemoViewProvider` 对象，使用 implements 需要实现`vscode.TreeDataProvider`的方法
+  const demoViewProvider = new DemoViewProvider()
+
+  // 注册树视图
+  vscode.window.registerTreeDataProvider(
+    'package-dependencies-demo',
+    demoViewProvider
+  )
+  vscode.window.registerTreeDataProvider(
+    'package-outline-demo',
+    demoViewProvider
+  )
+}
+
+class DemoViewProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
+  private _onDidChangeTreeData: vscode.EventEmitter<
+    vscode.TreeItem | undefined | void
+  > = new vscode.EventEmitter<vscode.TreeItem | undefined | void>()
+  readonly onDidChangeTreeData: vscode.Event<
+    vscode.TreeItem | undefined | void
+  > = this._onDidChangeTreeData.event
+
+  getTreeItem(element: vscode.TreeItem): vscode.TreeItem {
+    return element
+  }
+
+  getChildren(element?: vscode.TreeItem): Thenable<vscode.TreeItem[]> {
+    if (element) {
+      return Promise.resolve([])
+    }
+
+    const items = ['Dependency 1', 'Dependency 2', 'Group A'].map(
+      (label) => new vscode.TreeItem(label)
+    )
+
+    return Promise.resolve(items)
+  }
+
+  refresh(): void {
+    this._onDidChangeTreeData.fire()
+  }
+}
+```
+
+效果如下：
+
+![](./img/18-contributes.viewsContainer自定义视图容器.png)
 
 ## 6、contributes.viewsWelcome
 
-引导页，向自定义视图贡献欢迎内容
+### 6.1 在内置的视图中添加欢迎页
 
+在 package.json 中添加如下内容：
 
-# 五、package.json 的 when 子句上下文
+```json
+{
+  "contributes": {
+    "viewsWelcome": [
+      {
+        "view": "workbench.explorer.emptyView", // 在默认的资源管理器中添加欢迎页（未打开文件夹的情况）
+        "contents": "Hello World \n这个一个[命令链接](https://code.visualstudio.com)点击打开\n打开[internal commands](command:welcome-view-content-sample.hello).\n [Hello](command:welcome-view-content-sample.hello)\n[codicons](https://microsoft.github.io/vscode-codicons/dist/codicon.html)\n使用`$(...)`, 例如: `$(vscode)` `$(heart)` `$(github)`, 可以渲染出: $(vscode) $(heart) $(github)\n"
+      }
+    ]
+  }
+}
+```
+
+`contents` 可以渲染的内容：
+
+- markdown
+- 通过 markdown 绑定的命令
+- 按钮：和 markdown 的 `link`的区别在于，当 "\`\`" 左右两侧有内容，无 `\n` 时，渲染为链接，反之为按钮
+- icon，例如：`$(vscode)`
+
+渲染的效果如下：
+
+![](./img/19-viewsWelcome-1.png)
+
+### 6.2 在自定义视图中添加欢迎页
+
+欢迎内容也可贡献到自定义视图中，欢迎内容仅适用于**空树视图**（webview是不行的，且不能渲染树视图，也就是在 `active()` 中不能使用 `createTreeView` 创建树视图，一般不写就是空）
+
+在 `package.json` 中添加如下内容：
+
+```json
+{
+   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "webview-container",
+          "title": "Webview View",
+          "icon": "$(package)"
+        }
+      ]
+    },
+    "views": {
+      "webview-container": [
+        {
+          "id": "webview-view-demo",
+          "name": "Webview Content Demo",
+          "icon": "media/icon.svg",
+          "when": "true"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "webview-view-demo", // 与 webview-container 的 id 相同
+        "contents": "Hello World!\nCustom Render viewsWelcome"
+      }
+    ]
+  }
+}
+```
+
+- viewsContainers：定义自定义视图容器，显示在活动栏
+- views：定义自定义视图，显示在视图容器中，该view的id为`webview-view-demo`（需要与`viewsWelcome子项的view`一致）
+- viewsWelcome：定义视图欢迎页，显示在视图容器中
+
+效果如下：
+
+![](./img/19-viewsWelcome-2.png)
+
+# 六、package.json 的 when 子句上下文
 
 官方文档：https://code.visualstudio.com/api/references/when-clause-contexts
 
@@ -1413,7 +1648,7 @@ vscode.commands.executeCommand(
 }
 ```
 
-# 六、extension.ts 文件
+# 七、extension.ts 文件
 
 `extension.ts`是插件工程的入口文件，也就是 webpack.config.js 中打包的入口文件，当插件被激活，即触发`package.json`中的`activationEvents`配置项时，`extension.ts`文件开始执行。
 
