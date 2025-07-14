@@ -737,45 +737,9 @@ class GitHubAuthenticationProvider implements vscode.AuthenticationProvider {
 
 ## 2、contributes.commands
 
-官方文档：https://code.visualstudio.com/api/references/vscode-api#commands
+官方文档：https://code.visualstudio.com/api/references/contribution-points#contributes.commands
 
-包含几个方法：
-
-- `executeCommand<T>(command: string, ...rest: any[]): Thenable<T>`：执行由给定命令标识符指定的命令
-
-- `getCommands(filterInternal?: boolean): Thenable<string[]>`：获取所有可用命令的列表。以下划线开头的命令被视为内部命令。
-
-- `registerCommand(command: string, callback: (args: any[]) => any, thisArg?: any)`：注册一个可通过键盘快捷键、菜单项、操作或直接调用的命令。
-
-- `registerTextEditorCommand(command: string, callback: (textEditor: TextEditor, edit: TextEditorEdit, args: any[]) => void, thisArg?: any)`：注册一个可通过键盘快捷键、菜单项、操作或直接调用的文本编辑器命令。
-
-### 2.1、新建命令
-
-#### 2.1.1 注册一个命令
-
-使用 `vscode.commands.registerCommand` 会把命令 ID 绑定到你插件的函数上
-
-```ts
-import * as vscode from 'vscode'
-
-export function activate(context: vscode.ExtensionContext) {
-  context.subscriptions.push(
-    // 注册命令，执行回调
-    vscode.commands.registerCommand(
-      'myExtension.sayHello',
-      (name: string = 'world') => {
-        vscode.window.showInformationMessage(`Hello ${name}`)
-      }
-    )
-  )
-}
-```
-
-当执行 `Say Helllo` 命令后会在右下角打印信息
-
-#### 2.1.2 创建面向用户的命令
-
-`vscode.commands.registerCommand`仅仅是将命令 id 绑定到了处理函数上，如果想让用户从*命令面板*中找到你的命令，你还需要在`package.json`中配置对应的命令`配置项(contribution)：
+`vscode.commands.registerCommand`仅仅是将命令 id 绑定到了处理函数上，如果想让用户从**命令面板**中找到你的命令，你还需要在`package.json`中配置对应的命令`配置项(contribution)：
 
 ```json
 "contributes": {
@@ -790,180 +754,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 `commands`配置告诉 VS Code 你的插件提供了一个命令，而且允许你控制命令在 UI 中的显示。
 
-![](./img/07-创建面向用户的命令.png)
-
-我们依旧需要使用`registerCommand`将真实的命令 id 绑定到函数上。也就是说，如果我们的插件没有激活，那么用户从*命令面板*中选择`myExtension.sayHello`也不会有任何效果。（所以一般“注册一个命令”和“创建面向用户的命令”会一起使用）
-
-#### 2.1.3 控制命令出现在命令面板的时机
-
-默认情况下，所有命令面板中出现的命令都可以在`package.json`的`commands`部分中配置。不过，有些命令是场景相关的，比如在特定的语言的编辑器中，或者只有用户设置了某些选项时才展示。
-
-`menus.commandPalette`发布内容配置运行你限制命令出现在*命令面板*的时机。你需要配置命令 ID 和一条[when 语句](https://code.visualstudio.com/docs/getstarted/keybindings#_when-clause-contexts)：
-
-```json
-{
-  "contributes": {
-    "menus": {
-      "commandPalette": [
-        {
-          "command": "myExtension.sayHello",
-          "when": "editorLangId == markdown"
-        }
-      ]
-    }
-  }
-}
-```
-
-现在`myExtension.sayHello`命令只会出现在用户的 Markdown 文件中了。
-
-### 2.2 使用命令
-
-VS Code 内部含有大量和编辑器交互、控制 UI、后台操作的内置命令。许多插件将它们的核心功能暴露为*命令*的形式供用户或者其他插件使用。
-
-> 内置命令可以参考：https://liiked.github.io/VS-Code-Extension-Doc-ZH/#/references/commands
-
-#### 2.2.1 程序性调用一个命令
-
-[`vscode.commands.executeCommand`](https://code.visualstudio.com/api/references/vscode-api#commands.executeCommand)API 可以程序性调用一个命令，你可以通过它将 VS Code 的内置函数构建在你的插件中，比如 VS Code 内置的 Git 和 Markdown 插件中的东西。
-
-我们看个例子 🌰：`editor.action.addCommentLine`命令可以将当前选中行变成注释(你可以偷偷把这个功能地集成到你自己的插件中哦)：
-
-```ts
-import * as vscode from 'vscode'
-
-// 将选中行注释掉
-function commentLine() {
-  vscode.commands.executeCommand('editor.action.addCommentLine')
-}
-
-export function activate(context: vscode.ExtensionContext) {
-  // 注册“注释当前行”命令
-  context.subscriptions.push(
-    // 需要在 package.json 中贡献 myExtension.commentLine
-    vscode.commands.registerCommand('myExtension.commentLine', () => {
-      // 调用内置的注释命令
-      vscode.commands.executeCommand('editor.action.addCommentLine')
-    })
-  )
-}
-```
-
-#### 2.2.2 命令的 URIs
-
-命令 URI 是执行注册命令的**链接**。它们可被用于悬停文本上的可点击链接，代码补全提示中的细节信息，甚至可以出现在 webview 中。
-
-命令 URI 使用`command`作为协议头，然后紧跟着命令名称。比如：`editor.action.addCommentLine`的命令 URI 是：`command:editor.action.addCommentLine`。下面是一个显示在当前行注释中显示链接的悬停函数：
-
-需要在 package.json 添加激活事件
-
-```json
-"activationEvents": [
-  "onLanguage:javascript"
-],
-```
-
-编写悬浮函数，通过 Markdown 进行 uri 链接渲染
-
-```ts
-import * as vscode from 'vscode'
-
-export function activate(context: vscode.ExtensionContext) {
-  const hover = vscode.languages.registerHoverProvider(
-    'javascript',
-    new (class implements vscode.HoverProvider {
-      provideHover(
-        _document: vscode.TextDocument,
-        _position: vscode.Position,
-        _token: vscode.CancellationToken
-      ): vscode.ProviderResult<vscode.Hover> {
-        const commentCommandUri = vscode.Uri.parse(
-          `command:editor.action.addCommentLine`
-        )
-        const contents = new vscode.MarkdownString(
-          `[\`Markdown渲染 Add comment\`](${commentCommandUri})`
-        )
-        // command URIs如果想在 Markdown 内容中生效, 你必须设置`isTrusted`，来创建可信的Markdown 字符
-        contents.isTrusted = true
-
-        return new vscode.Hover(contents)
-      }
-    })()
-  )
-
-  context.subscriptions.push(hover)
-}
-```
-
-当打开一个 js 文件，悬浮到内容上会展示以下内容，点击后，该行内容会被注释掉
-
-![](./img/08-commands-hover.png)
-
-### 2.3 触发命令方式
-
-- **直接通过 `vscode.commands.executeCommand` 调用命令**
-
-- **在命令面板中执行（用户手动输入）**
-
-- **快捷键方式触发**
-
-```json
-"contributes": {
-  "keybindings": [
-    {
-      "command": "editor.action.addCommentLine",
-      "key": "ctrl+alt+c",
-      "mac": "cmd+alt+c",
-      "when": "editorTextFocus"
-    }
-  ]
-}
-```
-
-- **在状态栏添加可点击按钮**
-
-```ts
-const statusBarItem = vscode.window.createStatusBarItem(
-  vscode.StatusBarAlignment.Left
-)
-// 状态栏文字
-statusBarItem.text = `$(comment) Comment Line`
-// 点击后执行editor.action.addCommentLine（注释该行）
-statusBarItem.command = 'editor.action.addCommentLine'
-// 显示这个状态栏按钮
-statusBarItem.show()
-```
-
-- **右键菜单中调用**
-
-```json
-"contributes": {
-  "menus": {
-    "editor/context": [
-      {
-        "command": "editor.action.addCommentLine",
-        "group": "navigation"
-      }
-    ]
-  }
-}
-```
-
-- **通过 markdown 渲染成链接，点击触发**
-
-这个`command:example.helloWorld` 就是命令（`vscode.commands.registerCommand('example.helloWorld)`）
-
-```md
-[命令按钮](command:example.helloWorld)
-```
-
-### 2.4 内置命令
-
-例如上面 2.3 的`editor.action.addCommentLine`就是内置命令，可以参考文档：
-
-官方文档：https://code.visualstudio.com/api/references/commands
-
-中文文档：https://liiked.github.io/VS-Code-Extension-Doc-ZH/#/references/commands
+这里就短暂讲讲，后续【九、Commands 命令】中会详细介绍。
 
 ## 3、contributes.menus
 
@@ -1454,13 +1245,13 @@ class DemoViewProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
 
 ### 6.2 在自定义视图中添加欢迎页
 
-欢迎内容也可贡献到自定义视图中，欢迎内容仅适用于**空树视图**（webview是不行的，且不能渲染树视图，也就是在 `active()` 中不能使用 `createTreeView` 创建树视图，一般不写就是空）
+欢迎内容也可贡献到自定义视图中，欢迎内容仅适用于**空树视图**（webview 是不行的，且不能渲染树视图，也就是在 `active()` 中不能使用 `createTreeView` 创建树视图，一般不写就是空）
 
 在 `package.json` 中添加如下内容：
 
 ```json
 {
-   "contributes": {
+  "contributes": {
     "viewsContainers": {
       "activitybar": [
         {
@@ -1491,7 +1282,7 @@ class DemoViewProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
 ```
 
 - viewsContainers：定义自定义视图容器，显示在活动栏
-- views：定义自定义视图，显示在视图容器中，该view的id为`webview-view-demo`（需要与`viewsWelcome子项的view`一致）
+- views：定义自定义视图，显示在视图容器中，该 view 的 id 为`webview-view-demo`（需要与`viewsWelcome子项的view`一致）
 - viewsWelcome：定义视图欢迎页，显示在视图容器中
 
 效果如下：
@@ -1670,3 +1461,533 @@ vscode.commands.executeCommand(
 - vscode.languages.registerCodeLensProvider()
 
 - vscode.languages.registerHoverProvider() 代码悬浮提示
+
+# 八、VS Code 插件生命周期
+
+VS Code 的插件都运行在一个独立的进程里, 被称为 Extension Host, 它加载并运行插件, 让插件感觉自己好像在主进程里一样, 同时又严格限制插件的响应时间, 避免插件影响主界面进程。
+
+![](./img/20-live.png)
+
+1. `activationEvents`:在`package.json`的`activationEvents`配置项中设置插件激活时机，这里设置的是`onCommand:vs-demo.helloWorld`，即输入命令`onCommand:vs-demo.helloWorld`时激活。
+2. `contributes`：`package.json`中的`contributes`配置项表示这个插件增加了哪些功能，这里设置了`commands`,表示增加的命令，在这一项中声明了一个命令`vs-demo.helloWorld`。
+3. `Register`:在 `extension.js` 文件中的 `activate(context)`方法中，使用`vscode.commands.registerCommand()`这一 API 为命令`vs-demo.helloWorld`绑定事件，绑定的事件为`vscode.window.showInformationMessage('Hello World from vs-demo!')`，即弹出弹框，显示 `Hello World from vs-demo!`。
+4. 在命令框中输入 `vs-demo.helloWorld`，此时插件被激活，进入`extension.js`中执行`activate()`方法，由于已经在`contributes`配置项中声明了命令`vs-demo.helloWorld`,所以在`activate()`方法中为该命令绑定一个事件，由于在命令框中输入了这个命令，所以命令绑定的事件立即被触发执行，所以在 vscode 的右下角弹出了弹出框。
+
+> 这部分摘自：[掘金](https://juejin.cn/post/7319143646586486820?searchId=202507010846088A7A9A9D7585523F934D#heading-11)
+
+# 九、Commands 命令
+
+官方文档：https://code.visualstudio.com/api/extension-guides/command
+
+包含几个方法：
+
+- `executeCommand<T>(command: string, ...rest: any[]): Thenable<T>`：执行由给定命令标识符指定的命令
+
+- `getCommands(filterInternal?: boolean): Thenable<string[]>`：获取所有可用命令的列表。以下划线开头的命令被视为内部命令。
+
+- `registerCommand(command: string, callback: (args: any[]) => any, thisArg?: any)`：注册一个可通过键盘快捷键、菜单项、操作或直接调用的命令。
+
+- `registerTextEditorCommand(command: string, callback: (textEditor: TextEditor, edit: TextEditorEdit, args: any[]) => void, thisArg?: any)`：注册一个可通过键盘快捷键、菜单项、操作或直接调用的文本编辑器命令。
+
+## 1、新建命令
+
+### 1.1 注册一个命令
+
+使用 `vscode.commands.registerCommand` 会把命令 ID 绑定到你插件的函数上
+
+```ts
+import * as vscode from 'vscode'
+
+export function activate(context: vscode.ExtensionContext) {
+  context.subscriptions.push(
+    // 注册命令，执行回调
+    vscode.commands.registerCommand(
+      'myExtension.sayHello',
+      (name: string = 'world') => {
+        vscode.window.showInformationMessage(`Hello ${name}`)
+      }
+    )
+  )
+}
+```
+
+当执行 `Say Helllo` 命令后会在右下角打印信息
+
+### 1.2 创建面向用户的命令
+
+`vscode.commands.registerCommand`仅仅是将命令 id 绑定到了处理函数上，如果想让用户从**命令面板**中找到你的命令，你还需要在`package.json`中配置对应的命令`配置项(contribution)：
+
+```json
+"contributes": {
+  "commands": [
+    {
+      "command": "myExtension.sayHello",
+      "title": "Say Hello"
+    }
+  ]
+},
+```
+
+`commands`配置告诉 VS Code 你的插件提供了一个命令，而且允许你控制命令在 UI 中的显示。
+
+![](./img/07-创建面向用户的命令.png)
+
+我们依旧需要使用`registerCommand`将真实的命令 id 绑定到函数上。也就是说，如果我们的插件没有激活，那么用户从*命令面板*中选择`myExtension.sayHello`也不会有任何效果。（所以一般“注册一个命令”和“创建面向用户的命令”会一起使用）
+
+### 1.3 控制命令出现在命令面板的时机
+
+默认情况下，所有命令面板中出现的命令都可以在`package.json`的`commands`部分中配置。不过，有些命令是场景相关的，比如在特定的语言的编辑器中，或者只有用户设置了某些选项时才展示。
+
+`menus.commandPalette`发布内容配置运行你限制命令出现在*命令面板*的时机。你需要配置命令 ID 和一条[when 语句](https://code.visualstudio.com/docs/getstarted/keybindings#_when-clause-contexts)：
+
+```json
+{
+  "contributes": {
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "myExtension.sayHello",
+          "when": "editorLangId == markdown"
+        }
+      ]
+    }
+  }
+}
+```
+
+现在`myExtension.sayHello`命令只会出现在当用户打开 Markdown 文件才显示了。
+
+## 2、使用命令
+
+VS Code 内部含有大量和编辑器交互、控制 UI、后台操作的内置命令。许多插件将它们的核心功能暴露为*命令*的形式供用户或者其他插件使用。
+
+> 内置命令可以参考：https://liiked.github.io/VS-Code-Extension-Doc-ZH/#/references/commands
+
+### 2.1 程序性调用一个命令
+
+[`vscode.commands.executeCommand`](https://code.visualstudio.com/api/references/vscode-api#commands.executeCommand)API 可以程序性调用一个命令，你可以通过它将 VS Code 的内置函数构建在你的插件中，比如 VS Code 内置的 Git 和 Markdown 插件中的东西。
+
+我们看个例子 🌰：`editor.action.addCommentLine`命令可以将当前选中行变成注释(你可以偷偷把这个功能地集成到你自己的插件中哦)：
+
+```ts
+import * as vscode from 'vscode'
+
+// 将选中行注释掉
+function commentLine() {
+  vscode.commands.executeCommand('editor.action.addCommentLine')
+}
+
+export function activate(context: vscode.ExtensionContext) {
+  // 注册“注释当前行”命令
+  context.subscriptions.push(
+    // 需要在 package.json 中贡献 myExtension.commentLine
+    vscode.commands.registerCommand('myExtension.commentLine', () => {
+      // 调用内置的注释命令
+      vscode.commands.executeCommand('editor.action.addCommentLine')
+    })
+  )
+}
+```
+
+### 2.2 命令的 URIs
+
+命令 URI 是执行注册命令的**链接**。它们可被用于悬停文本上的可点击链接，代码补全提示中的细节信息，甚至可以出现在 webview 中。
+
+命令 URI 使用`command`作为协议头，然后紧跟着命令名称。比如：`editor.action.addCommentLine`的命令 URI 是：`command:editor.action.addCommentLine`。下面是一个显示在当前行注释中显示链接的悬停函数：
+
+需要在 package.json 添加激活事件，表示当前语言为 js 时候触发
+
+```json
+"activationEvents": [
+  "onLanguage:javascript"
+],
+```
+
+编写悬浮函数，通过 Markdown 进行 uri 链接渲染
+
+> `vscode.languages` 这些 api 可以在官方文档找到：https://code.visualstudio.com/api/references/vscode-api
+
+```ts
+import * as vscode from 'vscode'
+
+export function activate(context: vscode.ExtensionContext) {
+  const hover = vscode.languages.registerHoverProvider(
+    'javascript',
+    new (class implements vscode.HoverProvider {
+      provideHover(
+        _document: vscode.TextDocument,
+        _position: vscode.Position,
+        _token: vscode.CancellationToken
+      ): vscode.ProviderResult<vscode.Hover> {
+        const commentCommandUri = vscode.Uri.parse(
+          `command:editor.action.addCommentLine`
+        )
+        const contents = new vscode.MarkdownString(
+          `[\`Markdown渲染 Add comment\`](${commentCommandUri})`
+        )
+        // command URIs如果想在 Markdown 内容中生效, 你必须设置`isTrusted`，来创建可信的Markdown 字符
+        contents.isTrusted = true
+
+        return new vscode.Hover(contents)
+      }
+    })()
+  )
+
+  context.subscriptions.push(hover)
+}
+```
+
+当打开一个 js 文件，悬浮到内容上会展示以下内容，点击后，该行内容会被注释掉
+
+![](./img/08-commands-hover.png)
+
+## 3、触发命令方式
+
+- **直接通过 `vscode.commands.executeCommand` 调用命令**
+
+- **在命令面板中执行（用户手动输入）**
+
+- **快捷键方式触发**
+
+```json
+"contributes": {
+  "keybindings": [
+    {
+      "command": "editor.action.addCommentLine",
+      "key": "ctrl+alt+c",
+      "mac": "cmd+alt+c",
+      "when": "editorTextFocus"
+    }
+  ]
+}
+```
+
+- **在状态栏添加可点击按钮**
+
+```ts
+const statusBarItem = vscode.window.createStatusBarItem(
+  vscode.StatusBarAlignment.Left
+)
+// 状态栏文字
+statusBarItem.text = `$(comment) Comment Line`
+// 点击后执行editor.action.addCommentLine（注释该行）
+statusBarItem.command = 'editor.action.addCommentLine'
+// 显示这个状态栏按钮
+statusBarItem.show()
+```
+
+- **右键菜单中调用**
+
+```json
+"contributes": {
+  "menus": {
+    "editor/context": [
+      {
+        "command": "editor.action.addCommentLine",
+        "group": "navigation"
+      }
+    ]
+  }
+}
+```
+
+- **通过 markdown 渲染成链接，点击触发**（**命令的 URIs**）
+
+> 这个在【2、使用命令 2.2 命令的 URIs】有说
+
+这个`command:example.helloWorld` 就是命令（`vscode.commands.registerCommand('example.helloWorld)`）
+
+```md
+[命令按钮](command:example.helloWorld)
+```
+
+## 4、内置命令
+
+例如上面的`editor.action.addCommentLine`就是内置命令，可以参考文档：
+
+官方文档：https://code.visualstudio.com/api/references/commands
+
+中文文档：https://liiked.github.io/VS-Code-Extension-Doc-ZH/#/references/commands
+
+# 十、Tree View 树视图
+
+官方文档：https://code.visualstudio.com/api/extension-guides/tree-view
+
+树视图就是 vscode 左侧的文件树的样式，他提供 api 让你能够更方便的渲染树结构。
+
+## 1、树视图 API 基础
+
+### 1.1、TreeDataProvider
+
+`TreeDataProvider` 这个 api 是创建树视图的 api，需要必须要在类中实现 `getChildren` 和 `getTreeItem` 两个方法。
+
+- **方法**
+
+  - `getChildren`：必选，获取子节点，需要返回一个 `TreeItem` 类型的数组。
+  - `getTreeItem`：必选，获取树节点，需要返回一个 `TreeItem` 类型。
+  - `getParent`：可选，返回 element 的父级。如果 element 是根的子级，则返回 null 或 undefined 。
+  - `resolveTreeItem`：可选，作用是在树视图中展开某个节点时动态地更新该节点的详细信息（比如图标、描述、标签等），通常用于延迟加载或动态渲染 TreeItem 的内容。
+
+  ```ts
+  // 当你在 VS Code 树视图中点击节点 "a" 展开时，它会触发这个方法并显示你动态设置的内容。
+  // NodeDepItem是继承 vscode.TreeItem 类
+  resolveTreeItem(item: NodeDepItem, element: NodeDepItem, token: vscode.CancellationToken) {
+    if (element.label === 'a') {
+      // 动态更改 label 和 description
+      item.label = 'Updated Label for A';
+      item.description = 'This is a dynamic update';
+      item.tooltip = 'Dynamic tooltip for A';
+    }
+
+    return item;
+  }
+  ```
+
+- **事件**
+
+  - `onDidChangeTreeData`：可选**事件**，树视图监听了 `onDidChangeTreeData` 事件，一旦触发就会重新调用 `getChildren` 等方法获取最新的树数据，从而更新 UI，可以实现刷新按钮的功能。
+
+**NodeDepTreeProvider 的实现**：
+
+> 这里使用 `implements` 关键字，来约束类要实现的方法。
+
+```ts
+// 使用 implements，来实现TreeDataProvider接口
+class NodeDepTreeProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
+  getChildren(
+    element?: vscode.TreeItem | undefined
+  ): vscode.ProviderResult<vscode.TreeItem[]> {
+    return [new vscode.TreeItem('a'), new vscode.TreeItem('b')]
+  }
+
+  getTreeItem(element: vscode.TreeItem): vscode.TreeItem {
+    return element
+  }
+
+  onDidChangeTreeData?:
+    | vscode.Event<
+        void | vscode.TreeItem | vscode.TreeItem[] | null | undefined
+      >
+    | undefined = new vscode.EventEmitter<vscode.TreeItem | undefined | void>()
+    .event
+}
+```
+
+### 1.2、TreeItem
+
+> 官方文档：https://code.visualstudio.com/api/references/vscode-api#TreeItem
+
+`TreeItem` 类用来实现树视图中的一个元素，`TreeItem` 由 `TreeDataProvider` 创建，也就是在 `TreeDataProvider` 的 `getChildren` 方法中返回 `TreeItem`类型的数组。
+
+- `constructor`**构造函数**：有两种实例创建方式：第一种：`new TreeItem(label: string | TreeItemLabel, collapsibleState?: TreeItemCollapsibleState): TreeItem`；第二种：`new TreeItem(resourceUri: Uri, collapsibleState?: TreeItemCollapsibleState): TreeItem`。这两种创建方式的区别就是参数一的不同，每个参数的意思：
+
+  - `label: string | TreeItemLabel`：树视图中显示的元素名称
+  - `resourceUri: Uri`：表示此项目的资源的 Uri（这个就是之前在 `Commands` 命令部分说的：命令 URI 是执行注册命令的**链接**）
+  - `collapsibleState?: TreeItemCollapsibleState`：可选，`TreeItem` 折叠状态，默认为 `TreeItemCollapsibleState.None`
+
+- `properties` 属性：(这里属性也非常多，就选几个常用的说吧)
+
+  - `label`：`TreeItem` 显示的元素名称
+  - `description`：`TreeItem` 显示的元素描述
+  - `iconPath`：`TreeItem` 显示的图标
+  - `contextValue`：`TreeItem` 的 `when` 上下文值，这可用于在树中贡献特定项的操作。例如，`TreeItem` 被赋予上下文值 `folder` 。当使用 `menus` 扩展点向 `view/item/context` 贡献操作时，你可以在 `when` 表达式中的 `viewItem` 键指定上下文值，如 `viewItem == folder`。
+
+  ```json
+  "contributes": {
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "extension.deleteFolder",
+          "when": "viewItem == folder"
+        }
+      ]
+    }
+  }
+  ```
+
+  - `tooltip`：`TreeItem` 显示的元素提示
+  - `command`：当 `TreeItem` 被选中时应该执行的命令
+  - `collapsibleState`：`TreeItem` 折叠状态
+
+**NodeDepItem 的实现**：
+
+> 使用 `extends` 关键字继承 `vscode.TreeItem` 的属性和方法。
+
+```ts
+// 定义树结构子节点
+class NodeDepItem extends vscode.TreeItem {
+  constructor(public readonly label: string) {
+    super(label)
+    // this上有很多属性，配置节点的信息
+    this.description = 'nodeDepItem' + label
+  }
+
+  // this.iconPath
+  iconPath = {
+    light: path.join(__filename, '..', '..', 'media', 'icon.svg'),
+    dark: path.join(__filename, '..', '..', 'media', 'icon.svg')
+  } as any
+}
+```
+
+### 1.3 注册 TreeDataProvider
+
+注册 `TreeDataProvider` 有两种方法：`registerTreeDataProvider` 和 `createTreeView`，两者都可以创建树视图，但它们的用途和职责是不同的。
+
+| 特性                                           | `createTreeView`           | `registerTreeDataProvider`       |
+| ---------------------------------------------- | -------------------------- | -------------------------------- |
+| **作用**                                       | 创建一个可视化的树视图界面 | 注册一个树数据提供者（提供数据） |
+| **是否创建 UI 组件**                           | ✅ 是                      | ❌ 否                            |
+| **是否需要 TreeDataProvider**                  | ✅ 需要                    | ✅ 需要                          |
+| **是否暴露 view 对象**                         | ✅ 是                      | ❌ 否                            |
+| **可否绑定右键菜单、viewItemResolve 等扩展点** | ✅ 可以                    | ❌ 不行                          |
+
+官方文档的描述是：如果你想在视图上执行一些 UI 操作，可以使用 `window.createTreeView` 而不是 `window.registerTreeDataProvider`。这将提供对视图的访问，你可以使用它来执行视图操作。
+
+```ts
+// registerTreeDataProvider
+vscode.window.registerTreeDataProvider(
+  'nodeDependencies-demo',
+  new DepNodeProvider()
+)
+// createTreeView
+vscode.window.createTreeView('nodeDependencies-demo', {
+  treeDataProvider: new DepNodeProvider()
+})
+```
+
+### 1.4 案例1 - 创建基础树视图
+
+1、我们先把容器树视图的渲染容器创建出来，在 package.json 中添加如下代码：意思是在 `explorer`（文件资源管理器位置）贡献视图。
+
+```json
+{
+  "contributes": {
+    "views": {
+      "explorer": [
+        {
+          "id": "nodeDependencies-demo",
+          "name": "🚀 Node Dependencies Demo",
+          "icon": "media/icon.svg"
+        }
+      ]
+    }
+  }
+}
+```
+
+2. extension.ts 中添加如下代码：
+
+```ts
+import * as path from 'path'
+import * as vscode from 'vscode'
+
+export function activate(context: vscode.ExtensionContext) {
+    vscode.window.createTreeView('nodeDependencies-demo', {
+      treeDataProvider: new NodeDepTreeProvider()
+    })
+}
+
+// 使用 implements，来实现TreeDataProvider接口
+class NodeDepTreeProvider implements vscode.TreeDataProvider<NodeDepItem> {
+  getChildren(
+    element?: NodeDepItem | undefined
+  ): vscode.ProviderResult<NodeDepItem[]> {
+    return [new NodeDepItem('a'), new NodeDepItem('b')]
+  }
+
+  getTreeItem(element: NodeDepItem): vscode.TreeItem {
+    return element
+  }
+}
+
+// 定义树结构子节点
+class NodeDepItem extends vscode.TreeItem {
+  constructor(
+    public readonly label: string,
+  ) {
+    super(label)
+    // this上有很多属性，配置节点的信息
+    this.description = 'nodeDepItem' + label
+  }
+
+  // this.iconPath
+  iconPath = {
+    light: path.join(__filename, '..', '..', 'media', 'icon.svg'),
+    dark: path.join(__filename, '..', '..', 'media', 'icon.svg')
+  } as any
+}
+```
+
+### 1.5 案例2 - 创建多级树视图
+
+创建一个像资源管理器那样可以折叠的树视图，只需要在 `extension.ts` 稍作修改即可：
+
+需要在 `NodeDepItem`（也就是 `TreeItem`）中添加 `collapsibleState` 属性来控制节点的折叠状态，并传入 `children` 渲染多级子节点。
+
+```ts
+class NodeDepTreeProvider implements vscode.TreeDataProvider<NodeDepItem> {
+  getChildren(
+    element?: NodeDepItem | undefined
+  ): vscode.ProviderResult<NodeDepItem[]> {
+    if (!element) {
+      // 根节点
+      return [
+        new NodeDepItem('Level1-1', [
+          new NodeDepItem('Level2-1', []),
+          new NodeDepItem('Level2-2', [])
+        ]),
+        new NodeDepItem('Level1-2', [])
+      ]
+    } else {
+      // 非叶子节点有子节点
+      return element.children.length > 0 ? element.children : null
+    }
+  }
+
+  getTreeItem(element: NodeDepItem): vscode.TreeItem {
+    return element
+  }
+}
+
+// 定义树结构子节点
+class NodeDepItem extends vscode.TreeItem {
+  constructor(
+    public readonly label: string,
+    // 通过为 NodeDepItem 添加 children 属性并在 getChildren 中判断层级关系，可以轻松实现多级菜单树。
+    public readonly children: NodeDepItem[] = []
+  ) {
+    super(label)
+    this.description = 'nodeDepItem' + label
+    // 当某个节点有 children 时，会自动变为可展开状态。
+    this.collapsibleState =
+      children.length > 0
+        ? vscode.TreeItemCollapsibleState.Collapsed
+        : vscode.TreeItemCollapsibleState.None
+  }
+
+  // ...
+}
+```
+
+效果展示：
+
+![](./img/21-多级树视图.png)
+
+源码在 `/extension-guides/tree-view` 中
+
+# 十一、Webview API
+
+官方文档：https://code.visualstudio.com/api/extension-guides/webview
+
+# 十二、Markdown 扩展
+
+官方文档：https://code.visualstudio.com/api/extension-guides/markdown-extension
+
+# 十三、其他扩展指南
+
+这里只列出了平时用的多，且好复现的，还有很多扩展指南功能，可以自行参考文档。
+
+官方文档：https://code.visualstudio.com/api/extension-guides/overview
+
+# 十四、插件发布
