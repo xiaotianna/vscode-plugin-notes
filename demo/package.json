@@ -1,0 +1,111 @@
+{
+  "name": "auto-css-vars",
+  "displayName": "auto-css-vars",
+  "description": "css变量插件，帮助用户快速写入css变量，无需多个文件来回切换",
+  "version": "0.0.1",
+  "publisher": "xiaotianna",
+  "engines": {
+    "vscode": "^1.102.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:scss",
+    "onLanguage:css",
+    "onLanguage:vue",
+    "onLanguage:typescript",
+    "onLanguage:javascript",
+    "onLanguage:html",
+    "onLanguage:jsx",
+    "onLanguage:tsx"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "auto-css-vars.replaceColors",
+        "title": "替换颜色值为CSS变量"
+      },
+      {
+        "command": "auto-css-vars.pickAndReplaceColorVar",
+        "title": "选中颜色弹窗选择CSS变量并替换"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "auto-css-vars.replaceColors",
+        "key": "ctrl+e",
+        "mac": "cmd+e"
+      },
+      {
+        "command": "auto-css-vars.pickAndReplaceColorVar",
+        "key": "ctrl+t",
+        "mac": "cmd+t"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "color-vars-plugin-view-container",
+          "title": "Auto CSS Vars",
+          "icon": "public/palette.svg"
+        }
+      ]
+    },
+    "views": {
+      "color-vars-plugin-view-container": [
+        {
+          "id": "color-vars-plugin-view",
+          "name": "Auto CSS Vars 变量列表",
+          "icon": "public/palette.svg",
+          "type": "webview"
+        }
+      ]
+    },
+    "menus": {
+      "editor/context": [
+        {
+          "command": "auto-css-vars.replaceColors",
+          "when": "editorLangId == css || editorLangId == scss || editorLangId == vue || editorLangId == javascript || editorLangId == typescript || editorLangId == html || editorLangId == jsx || editorLangId == tsx",
+          "group": "navigation"
+        },
+        {
+          "command": "auto-css-vars.pickAndReplaceColorVar",
+          "when": "editorLangId == css || editorLangId == scss || editorLangId == vue || editorLangId == javascript || editorLangId == typescript || editorLangId == html || editorLangId == jsx || editorLangId == tsx",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "pnpm run compile-tests && pnpm run compile && pnpm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test",
+    "build:vsix": "vsce package"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "20.x",
+    "@types/vscode": "^1.102.0",
+    "@typescript-eslint/eslint-plugin": "^8.31.1",
+    "@typescript-eslint/parser": "^8.31.1",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.5.2",
+    "eslint": "^9.25.1",
+    "ts-loader": "^9.5.2",
+    "typescript": "^5.8.3",
+    "webpack": "^5.100.1",
+    "webpack-cli": "^6.0.1"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  }
+}

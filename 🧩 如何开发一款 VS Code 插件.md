@@ -1856,7 +1856,7 @@ vscode.window.createTreeView('nodeDependencies-demo', {
 })
 ```
 
-### 1.4 案例1 - 创建基础树视图
+### 1.4 案例 1 - 创建基础树视图
 
 1、我们先把容器树视图的渲染容器创建出来，在 package.json 中添加如下代码：意思是在 `explorer`（文件资源管理器位置）贡献视图。
 
@@ -1883,9 +1883,9 @@ import * as path from 'path'
 import * as vscode from 'vscode'
 
 export function activate(context: vscode.ExtensionContext) {
-    vscode.window.createTreeView('nodeDependencies-demo', {
-      treeDataProvider: new NodeDepTreeProvider()
-    })
+  vscode.window.createTreeView('nodeDependencies-demo', {
+    treeDataProvider: new NodeDepTreeProvider()
+  })
 }
 
 // 使用 implements，来实现TreeDataProvider接口
@@ -1903,9 +1903,7 @@ class NodeDepTreeProvider implements vscode.TreeDataProvider<NodeDepItem> {
 
 // 定义树结构子节点
 class NodeDepItem extends vscode.TreeItem {
-  constructor(
-    public readonly label: string,
-  ) {
+  constructor(public readonly label: string) {
     super(label)
     // this上有很多属性，配置节点的信息
     this.description = 'nodeDepItem' + label
@@ -1919,7 +1917,7 @@ class NodeDepItem extends vscode.TreeItem {
 }
 ```
 
-### 1.5 案例2 - 创建多级树视图
+### 1.5 案例 2 - 创建多级树视图
 
 创建一个像资源管理器那样可以折叠的树视图，只需要在 `extension.ts` 稍作修改即可：
 
@@ -1976,18 +1974,186 @@ class NodeDepItem extends vscode.TreeItem {
 
 源码在 `/extension-guides/tree-view` 中
 
-# 十一、Webview API
-
-官方文档：https://code.visualstudio.com/api/extension-guides/webview
-
-# 十二、Markdown 扩展
-
-官方文档：https://code.visualstudio.com/api/extension-guides/markdown-extension
-
-# 十三、其他扩展指南
+# 十一、其他扩展指南
 
 这里只列出了平时用的多，且好复现的，还有很多扩展指南功能，可以自行参考文档。
 
 官方文档：https://code.visualstudio.com/api/extension-guides/overview
 
-# 十四、插件发布
+项目实战可以参考这个作者的，底部有项目案例：https://juejin.cn/post/7303451052598083622?searchId=202507010846088A7A9A9D7585523F934D#heading-7
+
+# 十二、插件发布
+
+## 发布准备
+
+1. 安装依赖
+
+文档是 `-g` 全局安装，我喜欢安装在项目依赖中，使用脚本进行调用（因为我的插件需要使用 github action 进行 cicd）
+
+```bash
+pnpm i vsce -D
+```
+
+2. 新增脚本
+
+配置脚本，以及配置 `publisher` 发布者
+
+```json
+{
+  "publisher": "xiaotianna",
+  "scripts": {
+    "build:vsix": "vsce package"
+  }
+}
+```
+
+3. 登录 Azure DevOps
+
+Visual Studio Code 使用 Azure DevOps 提供其 Marketplace 服务
+
+网站入口：[https://dev.azure.com/](https://dev.azure.com/)
+
+登录后点击下图页面，创建 token（需要记住，关闭后就没有了）
+
+![](./img/22-发布token.png)
+
+创建发布者：[https://marketplace.visualstudio.com/manage/createpublisher](https://marketplace.visualstudio.com/manage/createpublisher)
+
+注意：进入页面后配置的 `name` 需要和 `package.json` 中配置的 `publisher` 一致。
+
+查看发布者：[https://marketplace.visualstudio.com/manage/publishers/](https://marketplace.visualstudio.com/manage/publishers/)
+
+## 自动发布
+
+1. 登录创建的发布者
+
+```bash
+vsce login <publisher id>
+
+# 会让你输入创建的token
+https://marketplace.visualstudio.com/manage/publishers/
+Personal Access Token for publisher '<publisher id>': ****************************************************
+
+The Personal Access Token verification succeeded for the publisher '<publisher id>'.
+```
+
+2. 打包
+
+```bash
+# vsce package
+pnpm build:vsix
+```
+
+3. 发布
+
+```bash
+vsce publish
+```
+
+## 手动发布
+
+因为我本地使用 `vsce package` 命令会报错，我采用的是将代码放入 `github`，使用 cicd 进行打包，获取到这个打包后的插件文件（后文会说如何配置），接着我们打开这个链接：[https://marketplace.visualstudio.com/manage](https://marketplace.visualstudio.com/manage)
+
+注意选对发布者哦，图形化页面点击上传即可
+
+# 十三、使用 Github Actions 构建 CICD 流水线
+
+在根目录新建 `.github/workflows/build-vsix.yml` 文件，配置如下：
+
+```yml
+name: Build VSIX and Publish Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+
+      #  安装依赖
+      - name: Install dependencies
+        run: |
+          npm install
+      # 安装打包插件
+      - name: Install vsce
+        run: |
+          npm install -g @vscode/vsce
+      # 将插件打包成 .vsix 文件
+      - name: Build project
+        run: |
+          npm run build:vsix
+      # 获取插件版本
+      - name: Get package version
+        id: get_version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_ENV
+      # 将产物文件（也就是打包后的.vsix文件）输出到 artifacts 中（流水线产物，可以下载）
+      - name: Upload VSIX as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: auto-css-vars-vsix
+          path: auto-css-vars-${{ env.version }}.vsix
+      # 创建 GitHub Release
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ env.version }}
+          release_name: Release ${{ env.version }}
+          draft: false
+          prerelease: false
+      # 上传 Release Asset
+      - name: Upload Release Asset
+        id: upload_release_asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: auto-css-vars-${{ env.version }}.vsix
+          asset_name: auto-css-vars-${{ env.version }}.vsix
+          asset_content_type: application/octet-stream
+```
+
+上面的内容还是挺多的，我们将内容进行分解：
+
+1. Install dependencies：也就是执行我们的 `npm install` 命令
+2. Install vsce：安装打包插件，也就是 `npm install -g @vscode/vsce`
+3. Build project：将插件打包成 .vsix 文件，也就是 `npm run build:vsix`
+4. Get package version：获取插件的版本号，去读取 package.json 文件中的 version 字段
+5. Upload VSIX as Artifact：将产物文件（也就是打包后的.vsix 文件）输出到 artifacts 中（流水线产物，可以下载）
+6. Create GitHub Release：创建 GitHub Release
+7. Upload Release Asset：上传 Release Asset
+
+- 步骤 5 是输出流水线的产物文件
+
+![](./img/23-流水线.png)
+
+- 步骤 6、7 步骤是创建 GitHub Release 的步骤
+
+> ⚠️ 该功能需要在仓库的设置中开启 `Workflow permissions`，在 `【你的仓库路径】/settings/actions` 页面，勾选 `Read and write permissions`。
+
+每次推送 git，需要更新一下 package.json 的 version，不然会提示版本号重复
+
+> 我开发的插件是一个css变量自动转换的插件，当我们书写了很多css变量，来回两个文件切换查看非常麻烦，所以做了这样一个插件提示我们的开发效率。
+> 
+> 插件名：auto-css-vars
+> 
+> 仓库地址：https://github.com/xiaotianna/auto-css-vars-vs-plugin（也可在本项目的demo中找到）
+>
+> 插件地址：https://marketplace.visualstudio.com/items?itemName=xiaotianna.auto-css-vars
